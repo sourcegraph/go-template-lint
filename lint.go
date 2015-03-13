@@ -20,7 +20,7 @@ import (
 
 var (
 	verbose      = flag.Bool("v", false, "show verbose output")
-	funcmapFile  = flag.String("f", "", "Go source file with FuncMap literal")
+	funcmapFile  = flag.String("f", "", "Go source file with FuncMap literal (commas separate multiple files)")
 	tmplSetsFile = flag.String("t", "", "Go source file containing template set (a [][]string literal)")
 	tmplDir      = flag.String("td", "", "base path of templates (prepended to template set filenames)")
 
@@ -38,16 +38,20 @@ func main() {
 		log.Fatal("-t is required (run with -h for usage info)")
 	}
 
-	definedFuncs, err := parseFuncDefs(*funcmapFile)
-	if err != nil {
-		log.Fatalf("Error parsing FuncMap names from %s: %s", *funcmapFile, err)
-	}
-	if len(definedFuncs) == 0 {
-		log.Fatal("No func definitions in a FuncMap found.")
+	var allDefinedFuncs []string
+	for _, f := range strings.Split(*funcmapFile, ",") {
+		definedFuncs, err := parseFuncDefs(f)
+		if err != nil {
+			log.Fatalf("Error parsing FuncMap names from %s: %s", f, err)
+		}
+		if len(definedFuncs) == 0 {
+			log.Fatalf("No func definitions in a FuncMap found in %s.", f)
+		}
+		allDefinedFuncs = append(allDefinedFuncs, definedFuncs...)
 	}
 	if *verbose {
-		log.Printf("# Found %d template functions:", len(definedFuncs))
-		for _, name := range definedFuncs {
+		log.Printf("# Found %d template functions:", len(allDefinedFuncs))
+		for _, name := range allDefinedFuncs {
 			log.Printf("# - %s", name)
 		}
 	}
@@ -66,7 +70,7 @@ func main() {
 		}
 	}
 
-	invokedFuncs, err := findInvokedFuncs(tmplSets, definedFuncs)
+	invokedFuncs, err := findInvokedFuncs(tmplSets, allDefinedFuncs)
 	if err != nil {
 		log.Fatalf("Error parsing templates to find invoked template functions: %s", err)
 	}
@@ -80,7 +84,7 @@ func main() {
 		}
 	}
 
-	definedFuncMap := sliceToMap(definedFuncs)
+	definedFuncMap := sliceToMap(allDefinedFuncs)
 	invokedFuncMap := sliceToMap(invokedFuncs)
 	fail := false
 
