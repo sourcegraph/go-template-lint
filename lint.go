@@ -154,10 +154,13 @@ func parseTmplSet(filename string) ([][]string, error) {
 	ast.Walk(visitFn(func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.CompositeLit:
-			if isTmplSet(n.Type) {
+			switch {
+			case isTmplSet(n.Type):
 				for _, e := range n.Elts {
 					tmplSets = append(tmplSets, astStringSlice(e.(*ast.CompositeLit)))
 				}
+			case isLayoutSet(n.Type):
+				tmplSets = append(tmplSets, astStringSlice(n))
 			}
 		}
 		return true
@@ -171,6 +174,15 @@ func isTmplSet(x ast.Expr) bool {
 			if t, ok := sx2.Elt.(*ast.Ident); ok && t.Name == "string" {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func isLayoutSet(x ast.Expr) bool {
+	if sx, ok := x.(*ast.ArrayType); ok && sx.Len == nil {
+		if t, ok := sx.Elt.(*ast.Ident); ok && t.Name == "string" {
+			return true
 		}
 	}
 	return false
